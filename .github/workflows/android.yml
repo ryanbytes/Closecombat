@@ -21,6 +21,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Native engine smoke test
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror             -Iapp/src/main/cpp             app/src/main/cpp/Engine.cpp             tests/engine_smoke.cpp             -o /tmp/engine_smoke
+          /tmp/engine_smoke
+
       - name: Install Android SDK components
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
