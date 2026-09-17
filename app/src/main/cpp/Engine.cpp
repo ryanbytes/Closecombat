@@ -28,6 +28,7 @@ Engine::Engine() {
 
 void Engine::reset() {
     rng_ = 0xC10C0A7u;
+    accumulator_ = 0.0f;
 
     obstacles_ = {
         {520.0f, 190.0f, 310.0f, 220.0f},
@@ -81,8 +82,24 @@ void Engine::reset() {
 }
 
 void Engine::step(float dt) {
-    dt = std::max(0.0f, std::min(dt, 0.05f));
+    constexpr float kTickSeconds = 1.0f / 30.0f;
+    constexpr int kMaxTicksPerCall = 8;
 
+    accumulator_ += std::max(0.0f, std::min(dt, 0.25f));
+
+    int ticks = 0;
+    while (accumulator_ + 0.000001f >= kTickSeconds && ticks < kMaxTicksPerCall) {
+        tick(kTickSeconds);
+        accumulator_ -= kTickSeconds;
+        ++ticks;
+    }
+
+    if (ticks == kMaxTicksPerCall && accumulator_ >= kTickSeconds) {
+        accumulator_ = std::fmod(accumulator_, kTickSeconds);
+    }
+}
+
+void Engine::tick(float dt) {
     for (Unit& unit : units_) {
         if (unit.health <= 0.0f) {
             continue;
