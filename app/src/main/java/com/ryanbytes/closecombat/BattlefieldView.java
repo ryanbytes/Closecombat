@@ -11,7 +11,8 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 
 public final class BattlefieldView extends View {
-    private static final int UNIT_STRIDE = 9;
+    private static final int UNIT_STRIDE = 12;
+    private static final int COVER_STRIDE = 6;
     private static final float COMMAND_BAR_HEIGHT = 76f;
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -22,13 +23,13 @@ public final class BattlefieldView extends View {
     private float cameraY = 0f;
     private float zoom = 0.75f;
     private long previousFrameNs = 0L;
-    private int activeMoveMode = 0;
+    private int activeOrderMode = 0;
 
     public BattlefieldView(Context context) {
         super(context);
         setFocusable(true);
         NativeEngine.reset();
-        NativeEngine.setMoveMode(activeMoveMode);
+        NativeEngine.setOrderMode(activeOrderMode);
 
         gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -128,12 +129,12 @@ public final class BattlefieldView extends View {
             return false;
         }
 
-        float buttonWidth = getWidth() / 4f;
-        int button = Math.min(3, Math.max(0, (int) (x / buttonWidth)));
+        float buttonWidth = getWidth() / 5f;
+        int button = Math.min(4, Math.max(0, (int) (x / buttonWidth)));
 
-        if (button <= 2) {
-            activeMoveMode = button;
-            NativeEngine.setMoveMode(activeMoveMode);
+        if (button <= 3) {
+            activeOrderMode = button;
+            NativeEngine.setOrderMode(activeOrderMode);
         } else {
             NativeEngine.stopSelected();
         }
@@ -153,6 +154,18 @@ public final class BattlefieldView extends View {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(Color.rgb(104, 116, 79));
         canvas.drawRect(0f, 0f, worldW, worldH, paint);
+
+        float[] cover = NativeEngine.getCoverZones();
+        for (int i = 0; i + COVER_STRIDE - 1 < cover.length; i += COVER_STRIDE) {
+            float strength = cover[i + 4];
+            paint.setColor(Color.argb((int) (70 + strength * 100), 54, 78, 45));
+            canvas.drawRect(
+                    cover[i],
+                    cover[i + 1],
+                    cover[i] + cover[i + 2],
+                    cover[i + 1] + cover[i + 3],
+                    paint);
+        }
 
         paint.setStrokeWidth(1f / zoom);
         paint.setColor(Color.argb(45, 20, 20, 20));
@@ -183,9 +196,12 @@ public final class BattlefieldView extends View {
             float morale = units[i + 5];
             float suppression = units[i + 6];
             float health = units[i + 7];
-            int moveMode = (int) units[i + 8];
+            int orderMode = (int) units[i + 8];
+            int alive = (int) units[i + 9];
+            int total = (int) units[i + 10];
+            int ammo = (int) units[i + 11];
 
-            if (health <= 0f) {
+            if (alive <= 0 || health <= 0f) {
                 paint.setColor(Color.rgb(55, 50, 45));
                 paint.setStrokeWidth(4f / zoom);
                 canvas.drawLine(x - 10f, y - 10f, x + 10f, y + 10f, paint);
@@ -197,6 +213,13 @@ public final class BattlefieldView extends View {
             paint.setColor(side == 0 ? Color.rgb(63, 101, 153) : Color.rgb(155, 67, 60));
             canvas.drawCircle(x, y, 18f, paint);
 
+            for (int soldier = 0; soldier < total; ++soldier) {
+                float sx = x - 16f + soldier * 8f;
+                float sy = y + 34f;
+                paint.setColor(soldier < alive ? Color.WHITE : Color.rgb(80, 80, 80));
+                canvas.drawCircle(sx, sy, 2.5f, paint);
+            }
+
             if (selected) {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(3f / zoom);
@@ -206,8 +229,17 @@ public final class BattlefieldView extends View {
 
                 paint.setTextSize(12f / zoom);
                 paint.setColor(Color.WHITE);
-                String mode = moveMode == 1 ? "FAST" : (moveMode == 2 ? "SNEAK" : "MOVE");
-                canvas.drawText(mode, x - 19f, y + 44f, paint);
+                String mode;
+                if (orderMode == 1) {
+                    mode = "FAST";
+                } else if (orderMode == 2) {
+                    mode = "SNEAK";
+                } else if (orderMode == 3) {
+                    mode = "FIRE";
+                } else {
+                    mode = "MOVE";
+                }
+                canvas.drawText(mode + "  " + alive + "/" + total + "  A:" + ammo, x - 34f, y + 50f, paint);
             }
 
             float barW = 42f;
@@ -228,30 +260,30 @@ public final class BattlefieldView extends View {
 
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(Color.argb(180, 0, 0, 0));
-        canvas.drawRoundRect(new RectF(14f, 14f, 530f, 82f), 10f, 10f, paint);
+        canvas.drawRoundRect(new RectF(14f, 14f, 590f, 82f), 10f, 10f, paint);
         paint.setColor(Color.WHITE);
         paint.setTextSize(18f);
-        canvas.drawText("Tap blue unit to select • choose order • tap destination", 28f, 42f, paint);
+        canvas.drawText("Select squad • choose order • tap destination/target", 28f, 42f, paint);
         paint.setTextSize(15f);
-        canvas.drawText("Drag: pan   Pinch: zoom   Double-tap: reset camera", 28f, 68f, paint);
+        canvas.drawText("FIRE is area/target fire   Drag: pan   Pinch: zoom", 28f, 68f, paint);
     }
 
     private void drawCommandBar(Canvas canvas) {
         float top = getHeight() - COMMAND_BAR_HEIGHT;
-        float buttonWidth = getWidth() / 4f;
+        float buttonWidth = getWidth() / 5f;
 
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(Color.rgb(24, 25, 22));
         canvas.drawRect(0f, top, getWidth(), getHeight(), paint);
 
-        String[] labels = {"MOVE", "FAST", "SNEAK", "STOP"};
+        String[] labels = {"MOVE", "FAST", "SNEAK", "FIRE", "STOP"};
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTextSize(19f);
+        paint.setTextSize(18f);
 
         for (int i = 0; i < labels.length; ++i) {
             float left = i * buttonWidth;
-            if (i == activeMoveMode && i < 3) {
-                paint.setColor(Color.rgb(82, 88, 72));
+            if (i == activeOrderMode && i < 4) {
+                paint.setColor(i == 3 ? Color.rgb(110, 55, 50) : Color.rgb(82, 88, 72));
                 canvas.drawRect(left + 4f, top + 6f, left + buttonWidth - 4f, getHeight() - 6f, paint);
             }
 

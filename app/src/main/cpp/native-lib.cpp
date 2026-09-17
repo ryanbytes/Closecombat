@@ -31,8 +31,8 @@ Java_com_ryanbytes_closecombat_NativeEngine_tap(JNIEnv*, jclass, jfloat worldX, 
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_ryanbytes_closecombat_NativeEngine_setMoveMode(JNIEnv*, jclass, jint mode) {
-    gEngine.setMoveMode(static_cast<int>(mode));
+Java_com_ryanbytes_closecombat_NativeEngine_setOrderMode(JNIEnv*, jclass, jint mode) {
+    gEngine.setOrderMode(static_cast<int>(mode));
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -46,8 +46,18 @@ Java_com_ryanbytes_closecombat_NativeEngine_getUnits(JNIEnv* env, jclass) {
 }
 
 extern "C" JNIEXPORT jfloatArray JNICALL
+Java_com_ryanbytes_closecombat_NativeEngine_getSoldiers(JNIEnv* env, jclass) {
+    return toJavaFloatArray(env, gEngine.soldierSnapshot());
+}
+
+extern "C" JNIEXPORT jfloatArray JNICALL
 Java_com_ryanbytes_closecombat_NativeEngine_getObstacles(JNIEnv* env, jclass) {
     return toJavaFloatArray(env, gEngine.obstacleSnapshot());
+}
+
+extern "C" JNIEXPORT jfloatArray JNICALL
+Java_com_ryanbytes_closecombat_NativeEngine_getCoverZones(JNIEnv* env, jclass) {
+    return toJavaFloatArray(env, gEngine.coverSnapshot());
 }
 
 extern "C" JNIEXPORT jfloat JNICALL
