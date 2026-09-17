@@ -15,6 +15,7 @@ A single 2D engine hosts multiple Close Combat-style rulesets and data adapters 
 2. **Android presentation**
    - Canvas renderer for the bootstrap milestone;
    - touch selection/orders;
+   - MOVE / FAST / SNEAK / STOP command bar;
    - pan and pinch zoom;
    - no gameplay state stored in the View.
 3. **Rulesets**
@@ -27,4 +28,8 @@ A single 2D engine hosts multiple Close Combat-style rulesets and data adapters 
 
 The prototype uses a fixed-seed linear congruential generator inside the simulation. The Android UI sends commands; it does not generate combat outcomes.
 
-The next deterministic step is to move command input onto a timestamped simulation command queue and run the engine at a fixed tick rate.
+The simulation runs at a fixed 30 Hz tick. The next deterministic step is to move UI commands onto a timestamped simulation command queue.
+
+## Bootstrap movement modes
+
+MOVE, FAST and SNEAK are wired as separate engine order states, with STOP cancelling the selected unit's route. Their current speed multipliers are bootstrap values for interaction testing, not claims about any specific Close Combat title. Title-specific timing belongs in the future ruleset layer.

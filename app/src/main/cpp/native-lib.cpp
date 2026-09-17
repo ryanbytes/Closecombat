@@ -30,6 +30,16 @@ Java_com_ryanbytes_closecombat_NativeEngine_tap(JNIEnv*, jclass, jfloat worldX, 
     gEngine.tap(worldX, worldY);
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_ryanbytes_closecombat_NativeEngine_setMoveMode(JNIEnv*, jclass, jint mode) {
+    gEngine.setMoveMode(static_cast<int>(mode));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_ryanbytes_closecombat_NativeEngine_stopSelected(JNIEnv*, jclass) {
+    gEngine.stopSelected();
+}
+
 extern "C" JNIEXPORT jfloatArray JNICALL
 Java_com_ryanbytes_closecombat_NativeEngine_getUnits(JNIEnv* env, jclass) {
     return toJavaFloatArray(env, gEngine.unitSnapshot());

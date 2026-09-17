@@ -11,7 +11,8 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 
 public final class BattlefieldView extends View {
-    private static final int UNIT_STRIDE = 8;
+    private static final int UNIT_STRIDE = 9;
+    private static final float COMMAND_BAR_HEIGHT = 76f;
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final GestureDetector gestureDetector;
@@ -21,11 +22,13 @@ public final class BattlefieldView extends View {
     private float cameraY = 0f;
     private float zoom = 0.75f;
     private long previousFrameNs = 0L;
+    private int activeMoveMode = 0;
 
     public BattlefieldView(Context context) {
         super(context);
         setFocusable(true);
         NativeEngine.reset();
+        NativeEngine.setMoveMode(activeMoveMode);
 
         gestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -35,6 +38,12 @@ public final class BattlefieldView extends View {
 
             @Override
             public boolean onSingleTapUp(MotionEvent e) {
+                if (handleCommandBarTap(e.getX(), e.getY())) {
+                    performClick();
+                    invalidate();
+                    return true;
+                }
+
                 float worldX = e.getX() / zoom + cameraX;
                 float worldY = e.getY() / zoom + cameraY;
                 NativeEngine.tap(worldX, worldY);
@@ -44,7 +53,9 @@ public final class BattlefieldView extends View {
 
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                if (!scaleDetector.isInProgress()) {
+                if (!scaleDetector.isInProgress()
+                        && e1.getY() < getHeight() - COMMAND_BAR_HEIGHT
+                        && e2.getY() < getHeight() - COMMAND_BAR_HEIGHT) {
                     cameraX += distanceX / zoom;
                     cameraY += distanceY / zoom;
                     clampCamera();
@@ -55,6 +66,9 @@ public final class BattlefieldView extends View {
 
             @Override
             public boolean onDoubleTap(MotionEvent e) {
+                if (e.getY() >= getHeight() - COMMAND_BAR_HEIGHT) {
+                    return false;
+                }
                 zoom = 0.75f;
                 cameraX = 0f;
                 cameraY = 0f;
@@ -88,9 +102,9 @@ public final class BattlefieldView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        boolean scaled = scaleDetector.onTouchEvent(event);
-        boolean gestured = gestureDetector.onTouchEvent(event);
-        return scaled || gestured || true;
+        scaleDetector.onTouchEvent(event);
+        gestureDetector.onTouchEvent(event);
+        return true;
     }
 
     @Override
@@ -100,12 +114,30 @@ public final class BattlefieldView extends View {
         long now = System.nanoTime();
         if (previousFrameNs != 0L) {
             float dt = (now - previousFrameNs) / 1_000_000_000f;
-            NativeEngine.step(Math.min(dt, 0.05f));
+            NativeEngine.step(Math.min(dt, 0.25f));
         }
         previousFrameNs = now;
 
         drawBattlefield(canvas);
+        drawCommandBar(canvas);
         postInvalidateOnAnimation();
+    }
+
+    private boolean handleCommandBarTap(float x, float y) {
+        if (getHeight() <= 0 || y < getHeight() - COMMAND_BAR_HEIGHT) {
+            return false;
+        }
+
+        float buttonWidth = getWidth() / 4f;
+        int button = Math.min(3, Math.max(0, (int) (x / buttonWidth)));
+
+        if (button <= 2) {
+            activeMoveMode = button;
+            NativeEngine.setMoveMode(activeMoveMode);
+        } else {
+            NativeEngine.stopSelected();
+        }
+        return true;
     }
 
     private void drawBattlefield(Canvas canvas) {
@@ -151,6 +183,7 @@ public final class BattlefieldView extends View {
             float morale = units[i + 5];
             float suppression = units[i + 6];
             float health = units[i + 7];
+            int moveMode = (int) units[i + 8];
 
             if (health <= 0f) {
                 paint.setColor(Color.rgb(55, 50, 45));
@@ -170,6 +203,11 @@ public final class BattlefieldView extends View {
                 paint.setColor(Color.WHITE);
                 canvas.drawCircle(x, y, 25f, paint);
                 paint.setStyle(Paint.Style.FILL);
+
+                paint.setTextSize(12f / zoom);
+                paint.setColor(Color.WHITE);
+                String mode = moveMode == 1 ? "FAST" : (moveMode == 2 ? "SNEAK" : "MOVE");
+                canvas.drawText(mode, x - 19f, y + 44f, paint);
             }
 
             float barW = 42f;
@@ -193,14 +231,47 @@ public final class BattlefieldView extends View {
         canvas.drawRoundRect(new RectF(14f, 14f, 530f, 82f), 10f, 10f, paint);
         paint.setColor(Color.WHITE);
         paint.setTextSize(18f);
-        canvas.drawText("Tap blue unit to select • tap ground to move", 28f, 42f, paint);
+        canvas.drawText("Tap blue unit to select • choose order • tap destination", 28f, 42f, paint);
         paint.setTextSize(15f);
         canvas.drawText("Drag: pan   Pinch: zoom   Double-tap: reset camera", 28f, 68f, paint);
     }
 
+    private void drawCommandBar(Canvas canvas) {
+        float top = getHeight() - COMMAND_BAR_HEIGHT;
+        float buttonWidth = getWidth() / 4f;
+
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.rgb(24, 25, 22));
+        canvas.drawRect(0f, top, getWidth(), getHeight(), paint);
+
+        String[] labels = {"MOVE", "FAST", "SNEAK", "STOP"};
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setTextSize(19f);
+
+        for (int i = 0; i < labels.length; ++i) {
+            float left = i * buttonWidth;
+            if (i == activeMoveMode && i < 3) {
+                paint.setColor(Color.rgb(82, 88, 72));
+                canvas.drawRect(left + 4f, top + 6f, left + buttonWidth - 4f, getHeight() - 6f, paint);
+            }
+
+            paint.setColor(Color.rgb(70, 72, 66));
+            paint.setStrokeWidth(1f);
+            if (i > 0) {
+                canvas.drawLine(left, top + 10f, left, getHeight() - 10f, paint);
+            }
+
+            paint.setColor(Color.WHITE);
+            canvas.drawText(labels[i], left + buttonWidth / 2f, top + 47f, paint);
+        }
+
+        paint.setTextAlign(Paint.Align.LEFT);
+    }
+
     private void clampCamera() {
         float visibleW = getWidth() > 0 ? getWidth() / zoom : 1f;
-        float visibleH = getHeight() > 0 ? getHeight() / zoom : 1f;
+        float usableHeight = Math.max(1f, getHeight() - COMMAND_BAR_HEIGHT);
+        float visibleH = usableHeight / zoom;
         float maxX = Math.max(0f, NativeEngine.getWorldWidth() - visibleW);
         float maxY = Math.max(0f, NativeEngine.getWorldHeight() - visibleH);
         cameraX = Math.max(0f, Math.min(maxX, cameraX));

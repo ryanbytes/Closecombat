@@ -18,6 +18,12 @@ struct Rect {
     float h{};
 };
 
+enum class MoveMode : int {
+    Move = 0,
+    Fast = 1,
+    Sneak = 2
+};
+
 struct Unit {
     int id{};
     int side{};
@@ -28,6 +34,7 @@ struct Unit {
     float health{1.0f};
     float speed{115.0f};
     float reload{0.0f};
+    MoveMode moveMode{MoveMode::Move};
     std::vector<Vec2> path;
     std::size_t pathIndex{0};
 };
@@ -39,6 +46,8 @@ public:
     void reset();
     void step(float dt);
     void tap(float x, float y);
+    void setMoveMode(int mode);
+    void stopSelected();
 
     [[nodiscard]] std::vector<float> unitSnapshot() const;
     [[nodiscard]] std::vector<float> obstacleSnapshot() const;
@@ -54,6 +63,7 @@ private:
     std::vector<Unit> units_;
     std::uint32_t rng_{0xC10C0A7u};
     float accumulator_{0.0f};
+    MoveMode pendingMoveMode_{MoveMode::Move};
 
     void tick(float dt);
     [[nodiscard]] bool pointBlocked(Vec2 p, float padding = 0.0f) const;

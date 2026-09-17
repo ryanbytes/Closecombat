@@ -7,7 +7,7 @@
 
 namespace {
 
-constexpr std::size_t kStride = 8;
+constexpr std::size_t kStride = 9;
 
 [[noreturn]] void fail(const char* message) {
     std::cerr << "FAIL: " << message << '\n';
@@ -41,6 +41,23 @@ int main() {
     const std::vector<float> moved = engine.unitSnapshot();
     expect(std::fabs(moved[1] - 900.0f) < 8.0f, "selected unit failed to reach ordered x");
     expect(std::fabs(moved[2] - 250.0f) < 8.0f, "selected unit failed to reach ordered y");
+
+    engine.reset();
+    engine.setMoveMode(1);
+    engine.tap(400.0f, 250.0f);
+    for (int i = 0; i < 30; ++i) {
+        engine.step(1.0f / 60.0f);
+    }
+    const std::vector<float> fastMoving = engine.unitSnapshot();
+    expect(fastMoving[8] == 1.0f, "FAST order mode was not assigned");
+    expect(fastMoving[1] > initial[1], "FAST order did not start movement");
+
+    engine.stopSelected();
+    const float stoppedX = engine.unitSnapshot()[1];
+    for (int i = 0; i < 120; ++i) {
+        engine.step(1.0f / 60.0f);
+    }
+    expect(std::fabs(engine.unitSnapshot()[1] - stoppedX) < 0.01f, "STOP did not halt selected unit");
 
     engine.reset();
     const std::vector<float> reset = engine.unitSnapshot();

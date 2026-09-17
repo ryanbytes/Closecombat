@@ -29,6 +29,7 @@ Engine::Engine() {
 void Engine::reset() {
     rng_ = 0xC10C0A7u;
     accumulator_ = 0.0f;
+    pendingMoveMode_ = MoveMode::Move;
 
     obstacles_ = {
         {520.0f, 190.0f, 310.0f, 220.0f},
@@ -121,7 +122,20 @@ void Engine::tick(float dt) {
                 ++unit.pathIndex;
             } else {
                 const float stateFactor = std::max(0.22f, unit.morale * (1.0f - 0.70f * unit.suppression));
-                const float travel = unit.speed * stateFactor * dt;
+                float orderSpeedFactor = 1.0f;
+                switch (unit.moveMode) {
+                    case MoveMode::Fast:
+                        orderSpeedFactor = 1.35f;
+                        break;
+                    case MoveMode::Sneak:
+                        orderSpeedFactor = 0.55f;
+                        break;
+                    case MoveMode::Move:
+                    default:
+                        orderSpeedFactor = 1.0f;
+                        break;
+                }
+                const float travel = unit.speed * orderSpeedFactor * stateFactor * dt;
                 if (travel >= dist) {
                     unit.pos = target;
                     ++unit.pathIndex;
@@ -227,7 +241,32 @@ void Engine::tap(float x, float y) {
         };
 
         if (!pointBlocked(destination, 8.0f)) {
+            unit.moveMode = pendingMoveMode_;
             unit.path = findPath(unit.pos, destination);
+            unit.pathIndex = 0;
+        }
+    }
+}
+
+void Engine::setMoveMode(int mode) {
+    switch (mode) {
+        case 1:
+            pendingMoveMode_ = MoveMode::Fast;
+            break;
+        case 2:
+            pendingMoveMode_ = MoveMode::Sneak;
+            break;
+        case 0:
+        default:
+            pendingMoveMode_ = MoveMode::Move;
+            break;
+    }
+}
+
+void Engine::stopSelected() {
+    for (Unit& unit : units_) {
+        if (unit.selected && unit.side == 0 && unit.health > 0.0f) {
+            unit.path.clear();
             unit.pathIndex = 0;
         }
     }
@@ -235,7 +274,7 @@ void Engine::tap(float x, float y) {
 
 std::vector<float> Engine::unitSnapshot() const {
     std::vector<float> out;
-    out.reserve(units_.size() * 8);
+    out.reserve(units_.size() * 9);
 
     for (const Unit& unit : units_) {
         out.push_back(static_cast<float>(unit.id));
@@ -246,6 +285,7 @@ std::vector<float> Engine::unitSnapshot() const {
         out.push_back(unit.morale);
         out.push_back(unit.suppression);
         out.push_back(unit.health);
+        out.push_back(static_cast<float>(unit.moveMode));
     }
     return out;
 }
