@@ -199,24 +199,20 @@ void Engine::tap(float x, float y) {
         return;
     }
 
-    int order = 0;
     for (Unit& unit : units_) {
         if (!unit.selected || unit.side != 0 || unit.health <= 0.0f) {
             continue;
         }
 
-        const int column = order % 3;
-        const int row = order / 3;
-        Vec2 destination{
-            std::clamp(x + (column - 1) * 34.0f, 20.0f, worldWidth_ - 20.0f),
-            std::clamp(y + row * 34.0f, 20.0f, worldHeight_ - 20.0f)
+        const Vec2 destination{
+            std::clamp(x, 20.0f, worldWidth_ - 20.0f),
+            std::clamp(y, 20.0f, worldHeight_ - 20.0f)
         };
 
         if (!pointBlocked(destination, 8.0f)) {
             unit.path = findPath(unit.pos, destination);
             unit.pathIndex = 0;
         }
-        ++order;
     }
 }
 
