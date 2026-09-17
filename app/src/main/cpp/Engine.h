@@ -53,7 +53,9 @@ private:
     std::vector<Rect> obstacles_;
     std::vector<Unit> units_;
     std::uint32_t rng_{0xC10C0A7u};
+    float accumulator_{0.0f};
 
+    void tick(float dt);
     [[nodiscard]] bool pointBlocked(Vec2 p, float padding = 0.0f) const;
     [[nodiscard]] bool cellBlocked(int cx, int cy) const;
     [[nodiscard]] bool hasLineOfSight(Vec2 a, Vec2 b) const;
